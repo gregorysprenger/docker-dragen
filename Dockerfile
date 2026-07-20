@@ -1,42 +1,53 @@
+ARG DRAGEN_VERSION="4.5.4"
+ARG RUNFILE="dragen-${DRAGEN_VERSION}-12.multi.el8.x86_64.run"
+
+# ==========================================
+# Build DRAGEN from Oracle Linux 8 RPM
+# ==========================================
+FROM oraclelinux:8 AS builder
+ARG DRAGEN_VERSION
+ARG RUNFILE
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN yum -y install cpio && yum clean all
+
+COPY "${RUNFILE}" /tmp/dragen.run
+
+# Build DRAGEN from the RPM
+RUN mkdir -p /tmp/dragen_extract /target_root \
+    && /bin/sh /tmp/dragen.run --noexec --target /tmp/dragen_extract \
+    && for rpm in /tmp/dragen_extract/*.rpm; do \
+           rpm2cpio "$rpm" | (cd /target_root/ && cpio -idmv); \
+       done
+
+# ==========================================
+# Runtime Build
+# ==========================================
 FROM oraclelinux:8
+ARG DRAGEN_VERSION
 
-ARG runfile=dragen-4.3.6-11.multi.el8.x86_64.run
+ENV PATH="/opt/dragen/${DRAGEN_VERSION}/bin:${PATH:-/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}"
+ENV LD_LIBRARY_PATH="/usr/lib64:/opt/dragen/${DRAGEN_VERSION}/lib"
 
-RUN dnf install unzip wget -y
+RUN yum -y install --nodocs oracle-epel-release-el8 \
+    && yum -y install epel-release \
+    && yum -y install --nodocs which bc perl rsync time udev systemd-libs \
+    && yum -y install --nodocs --enablerepo=ol8_codeready_builder R-core \
+    && yum clean all \
+    && rm -rf /var/cache/yum /usr/share/doc /usr/share/man
 
-#RUN yum install R-base -y
-#RUN yum install epel-release -y
-#RUN yum install parallel sysvinit-tools gdb rsync smartmontools sos time -y 
-#RUN yum install awk dirname grep md5sum rpm sort tr logger sed -y
-RUN dnf install which -y
-RUN dnf config-manager --enable ol8_codeready_builder
-RUN dnf install oracle-epel-release-el8 -y
-RUN dnf install R -y
-RUN dnf install bc dkms gdb rsync smartmontools sos time -y
-RUN dnf install kernel kernel-devel -y
-RUN dnf install hostname -y
-RUN dnf install perl -y
+COPY --from=builder /target_root/opt/dragen /opt/dragen
+COPY --from=builder /target_root/opt/bitstream /opt/bitstream
+COPY --from=builder /target_root/usr/lib64/ /usr/lib64/
+COPY --from=builder /target_root/etc/ /etc/
 
-# /bin/sh dragen-4.0.3-8.el7.x86_64.run 
-# returns an error, so use ; instead of &&
-# Also note the entire set of commands needs to return 0
-# else the Docker build will fail,
-# so make sure to keep the rm -rf /dragen_software command 
-# or some other command returning 0
-# https://webdata.illumina.com/downloads/software/dragen/dragen-4.0.3-8.el8.x86_64.run
+RUN ldconfig \
+    && find "/opt/dragen/${DRAGEN_VERSION}/bin" -maxdepth 1 -type f -executable -exec ln -sf {} /usr/local/bin/ \; \
+    && test -x /usr/local/bin/dragen
 
-# Fake out the preflight check for kernel version/kernel-devel package match
-COPY fake_uname/uname /usr/bin/uname
+WORKDIR /opt/dragen/${DRAGEN_VERSION}
 
-# Method 1: Download within the container
-# RUN wget -O $runfile https://webdata.illumina.com/downloads/software/dragen/$runfile && \
-#   /bin/sh $runfile; \
-#   rm -rf $runfile && \
-#   rm -rf /dragen_software
+EXPOSE 22
 
-# Method 2: Use local download under runfile/
-COPY runfile/$runfile /
-# Have to fake out the Docker build to think RUN returned without error
-RUN /bin/sh $runfile; \
-  rm -rf $runfile && \
-  rm -rf /dragen_software
+CMD ["dragen", "--help"]

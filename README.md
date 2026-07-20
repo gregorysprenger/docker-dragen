@@ -1,81 +1,57 @@
-docker-dragen
-=============
+# DRAGEN v4.5.4 Docker Image
 
-Version 4.3.6 for Oracle 8 
+Production-oriented DRAGEN 4.5.4 container build for Oracle Linux 8.
 
+## Resources
 
-Resources
----------
-
-https://www.illumina.com/products/by-type/informatics-products/dragen-bio-it-platform.html
-
-Dragen home page
-
-https://support.illumina.com/sequencing/sequencing_software/dragen-bio-it-platform/downloads.html
-
-Dragen software downloads
+- [Illumina DRAGEN Bio-IT Platform](https://www.illumina.com/products/by-type/informatics-products/dragen-bio-it-platform.html)
+- [Illumina DRAGEN Downloads & Support](https://support.illumina.com/sequencing/sequencing_software/dragen-bio-it-platform/downloads.html)
 
 
-Build
------
+## Build
 
-Fetch the Dragen software from Illumina. They appear to have returned to
-requiring a signed download URL. If you click to download (and log in)
-here
+1. Download the DRAGEN runfile from Illumina (signed URL, login required).
+2. Save it in the project root with a stable filename.
 
-https://support.illumina.com/sequencing/sequencing_software/dragen-bio-it-platform/downloads.html
+Expected default filename:
+```bash
+dragen-4.5.4-12.multi.el8.x86_64.run
+```
 
-a page will appear with a signed URL download link.
+Recommended download pattern (prevents querystring filenames):
 
-Once downloaded, put the run file under `runfile/`
+```bash
+wget -O dragen-4.5.4-12.multi.el8.x86_64.run "<signed-url>"
+```
 
-    runfile/dragen-4.3.6-11.multi.el8.x86_64.run
+Build the image:
+```bash
+docker build -t oracle8-dragen:4.5.4 .
+```
 
-Build
+If your runfile name or target version differs, override them at build time using build arguments:
+```bash
+docker build \
+    --build-arg DRAGEN_VERSION="4.5.4" \
+    --build-arg RUNFILE="<your-file>.run" \
+    -t oracle8-dragen:4.5.4 .
+```
 
-    # You will see many errors, but don't worry
-    make build
+## Run
 
-Launch an interactive shell
+Start an interactive shell:
+```bash
+docker run --rm -it oracle8-dragen:4.5.4 /bin/bash
+```
+Run DRAGEN help:
+```bash
+docker run --rm oracle8-dragen:4.5.4 dragen --help
+```
 
-    make interact
+## Notes
 
-push to DockerHub (be sure to modify `Makefile` to use your own account)
-
-    make push
-
-The `runfile/` directory can be deleted when the build is complete
-
-
-Usage
------
-
-Dragen software is installed under `/opt/dragen/4.3.6`.
-
-The `dragen` binary 
-
-    /opt/dragen/4.3.6/dragen
-
-when run with no arguments will print a help message, but note 
-that if run away from the Dragen hardware it will result in a driver
-error instead.
-
-
-Notes
------
-
-This Oracle 8 image is large (5.41GB compressed) compared to the CentOS
-7 version (2.36GB), I'm not sure why and will try to optimize it.
-
-Building under Oracle 8 also required copying in a fake `uname` (see
-`fake_uname/uname`) that outputs a kernel version matching the Oracle 8
-`kernel-devel` package, otherwise the pre-flight check by the Dragen
-software install fails. This is not required under CentOS 7. 
-
-The reason for the kernel mismatch is that `uname` reports the host
-kernel. Hopefully things will still work as the kernel and driver on the
-Dragen will be from the underlying OS. `dragen` and `dragen_lic` are
-able to run and communicate with the dongle but we are still testing
-
-
-
+- **Repository Dependencies:** During the package setup, the build process explicitly triggers Oracle's `ol8_codeready_builder` repository to automatically satisfy deep developer dependencies required by `R` (such as `openblas-devel`).
+- **Installation Layout:** DRAGEN binaries are deployed straight to `/opt/dragen/4.5.4/`. The `PATH` environment variable is automatically configured so `dragen` executes natively anywhere.
+- **RPM CPIO Extraction:** The monolithic installation script is bypassed via an explicit extract and `rpm2cpio` loop. This protects the pipeline from systemd/fstab runtime checks failing inside non-privileged Docker spaces.
+- **Validation:** Because native execution scripts may output non-zero status codes during dry container runs, image integrity is strictly validated via explicit existence checks on `/opt/dragen/4.5.4/bin/dragen`.
+- **Hardware Layer Expectations:** Running DRAGEN away from dedicated local FPGA acceleration components or unmapped device lines may yield driver missing warnings at runtime.
