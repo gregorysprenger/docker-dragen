@@ -31,7 +31,6 @@ ENV PATH="/opt/dragen/${DRAGEN_VERSION}/bin:${PATH:-/usr/local/sbin:/usr/local/b
 ENV LD_LIBRARY_PATH="/usr/lib64:/opt/dragen/${DRAGEN_VERSION}/lib"
 
 RUN yum -y install --nodocs oracle-epel-release-el8 \
-    && yum -y install epel-release \
     && yum -y install --nodocs which bc perl rsync time udev systemd-libs \
     && yum -y install --nodocs --enablerepo=ol8_codeready_builder R-core \
     && yum clean all \
@@ -42,12 +41,4 @@ COPY --from=builder /target_root/opt/bitstream /opt/bitstream
 COPY --from=builder /target_root/usr/lib64/ /usr/lib64/
 COPY --from=builder /target_root/etc/ /etc/
 
-RUN ldconfig \
-    && find "/opt/dragen/${DRAGEN_VERSION}/bin" -maxdepth 1 -type f -executable -exec ln -sf {} /usr/local/bin/ \; \
-    && test -x /usr/local/bin/dragen
-
-WORKDIR /opt/dragen/${DRAGEN_VERSION}
-
-EXPOSE 22
-
-CMD ["dragen", "--help"]
+WORKDIR /data
