@@ -5,15 +5,12 @@ ARG runfile
 
 # Install packages in specific order
 RUN dnf install -y \
-    # Install packages for epel \
     unzip \
     which \
     wget \
-    # Configure and install epel \
     && dnf config-manager --enable ol8_codeready_builder \
     && dnf install -y \
     oracle-epel-release-el8 \
-    # Install remaining packages \
     && dnf install -y \
     smartmontools \
     kernel-devel \
@@ -27,7 +24,6 @@ RUN dnf install -y \
     sos \
     bc \
     R \
-    # Clean cache \
     && dnf clean all
 
 # Fake out the preflight check for kernel version/kernel-devel package match
