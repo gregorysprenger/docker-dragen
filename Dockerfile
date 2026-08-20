@@ -30,7 +30,7 @@ RUN dnf install -y \
 COPY fake_uname/uname /usr/bin/uname
 
 # Use local download under runfile/ due to required signed URL
-COPY runfile/"${runfile}" /
+COPY runfile/${runfile} /
 
 # Have to fake out the Docker build to think RUN returned without error
 RUN /bin/sh "${runfile}"; \
