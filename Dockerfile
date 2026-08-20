@@ -41,4 +41,10 @@ COPY --from=builder /target_root/opt/bitstream /opt/bitstream
 COPY --from=builder /target_root/usr/lib64/ /usr/lib64/
 COPY --from=builder /target_root/etc/ /etc/
 
+RUN ldconfig \
+    && test -x /opt/dragen/${DRAGEN_VERSION}/bin/dragen
+
+# Mount point for sequencing data and outputs.
 WORKDIR /data
+
+CMD ["dragen", "--help"]
